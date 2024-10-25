@@ -1,4 +1,4 @@
-
+import schedule
 import tkinter as tk
 from tkinter import ttk
 from tkcalendar import DateEntry
@@ -108,4 +108,20 @@ data_atual = datetime.now()
 
 data_inicial = data_atual - timedelta(days=1)
 
-chamar_script("2024-10-24", "2024-10-24", cookie=cookie)
+
+# Obter a data de ontem
+ontem = datetime.now() - timedelta(days=1)
+data_ontem = ontem.strftime("%Y-%m-%d")
+
+
+
+schedule.every().day.at("07:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+schedule.every().day.at("10:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+schedule.every().day.at("13:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+schedule.every().day.at("15:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+schedule.every().day.at("19:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+schedule.every().day.at("23:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+
+while True:
+    schedule.run_pending()
+    time.sleep(60) 
