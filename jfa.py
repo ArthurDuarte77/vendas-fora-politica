@@ -1,3 +1,4 @@
+import joblib  # Para salvar e carregar o modelo
 from datetime import datetime
 from collections import defaultdict
 import argparse
@@ -28,69 +29,16 @@ import pandas
 
 items = []
 
+all_dados = pd.DataFrame()
+
 titulo_arquivo = ""
-# options.add_argument("--headless=new")
-
-def get_greeting():
-    current_hour = datetime.now().hour
-    if 5 <= current_hour < 12:
-        return "Bom dia!"
-    elif 12 <= current_hour < 18:
-        return "Boa tarde!"
-    else:
-        return "Boa noite!"
-
-def get_loja(loja):
-    response = requests.get(f"https://api.mercadolibre.com/sites/MLB/search?nickname={loja}")
-    user_id = response.json()['results'][0]['seller']['id']
-    user_response = requests.get(f"https://api.mercadolibre.com/users/{user_id}")
-    address = user_response.json()['address']['city']
-    state = user_response.json()['address']['state']
-    return address + " - " + state
-
-def enviar(grouped_by_seller):
-    print(grouped_by_seller)
-    return
-    if len(grouped_by_seller) > 0:
-        
-        requests.post("http://134.122.29.170:3000/api/sendText", {
-            "chatId": "120363330531801612@g.us",
-            "text": f"{get_greeting()} \n Segue vendas fora da política",
-            "session": "default"
-        })
-        try:
-            # print(grouped_by_seller)
-            for seller, products in grouped_by_seller.items():
-                dados = f"*{seller}* \n"
-                time.sleep(1)
-                for item in products:
-                    if item['listing_type'] == "gold_special":
-                        item['listing_type'] = "Clássico"
-                    else:
-                        item['listing_type'] = "Premium"
-                    
-                    # loja_info = get_loja(item['seller'])
-                    dados =  dados + f"{item['model']} - {item['seller']} - Preço Anúncio: {item['price']} - Preço Política: {round(item['predicted_price'], 2)} ({item['listing_type']}) \n titulo: {item['title']} \n quantidade: {item['qtd']} \n total: {item['total']} \n"
-                requests.post("http://134.122.29.170:3000/api/sendText", {
-                "chatId": "120363330531801612@g.us",
-                "text": dados,
-                "session": "default"
-                })
-        except Exception as e:
-            print(f"Erro ao enviar mensagens: {e}")   
-    else:
-        requests.post("http://134.122.29.170:3000/api/sendText", {
-            "chatId": "120363330531801612@g.us",
-            "text": f"{get_greeting()} \n Nada fora da política",
-            "session": "default"
-        })
 
 
 start_row = 20  
 end_row = 37
 num_rows = end_row - start_row
 
-df = pandas.read_excel("GESTÃO DE AÇÕES E-COMMERCE.xlsx", usecols='C:O', skiprows=start_row, nrows=num_rows, engine='openpyxl', sheet_name="POLÍTICA COMERCIAL Out24 II")
+df = pandas.read_excel("GESTÃO DE AÇÕES E-COMMERCE.xlsx", usecols='C:O', skiprows=start_row, nrows=num_rows, engine='openpyxl', sheet_name="POLÍTICA COMERCIAL Nov24")
 
 df.columns = ['PRODUTO', 'inutil1', 'SITE', 'COLUNA3','inutil2', 'CLÁSSICO ML', 'COLUNA5','inutil3', 'PREMIUM ML', 'COLUNA7','inutil4', 'MARKETPLACES', 'COLUNA9']
 
@@ -216,181 +164,91 @@ for index, i in df.iterrows():
         controleAcquaMarketplaceprice = round(i['SITE']- 0.01 , 2) ;
 
 
-# Dicionário com produtos e seus preços para cada categoria
-produtos = {
-    "FONTE 40A": {"classico": fonte40Classico, "premium": fonte40Premium},
-    "FONTE 60A": {"classico": fonte60Classico, "premium": fonte60Premium},
-    "FONTE LITE 60A": {"classico": fonte60liteClassico, "premium": fonte60litePremium},
-    "FONTE 70A": {"classico": fonte70Classico, "premium": fonte70Premium},
-    "FONTE LITE 70A": {"classico": fonte70liteClassico, "premium": fonte70litePremium},
-    "FONTE 120A": {"classico": fonte120Classico, "premium": fonte120Premium},
-    "FONTE LITE 120A": {"classico": fonte120liteClassico, "premium": fonte120litePremium},
-    "FONTE 200A": {"classico": fonte200Classico, "premium": fonte200Premium},
-    "FONTE LITE 200A": {"classico": fonte200liteClassico, "premium": fonte200litePremium},
-    "FONTE BOB 90A": {"classico": fonte90bobClassico, "premium": fonte90bobPremium},
-    "FONTE BOB 120A": {"classico": fonte120bobClassico, "premium": fonte120bobPremium},
-    "FONTE BOB 200A": {"classico": fonte200bobClassico, "premium": fonte200bobPremium},
-    "FONTE 200A MONO": {"classico": fonte200monoClassico, "premium": fonte200monoPremium},
-    "CONTROLE K1200": {"classico": controleK1200Classico, "premium": controleK1200Premium},
-    "CONTROLE K600": {"classico": controleK600Classico, "premium": controleK600Premium},
-    "CONTROLE REDLINE": {"classico": controleRedlineClassico, "premium": controleRedlinePremium},
-    "CONTROLE ACQUA": {"classico": controleAcquaClassico, "premium": controleAcquaPremium}
-}
-
-def identificar_produto(tipo, preco):
-    tolerancia = 0.05  # Tolerância de 1%
-    for produto, precos in produtos.items():
-        if tipo.lower() == "classico":
-            preco_base = precos["classico"]
-        elif tipo.lower() == "premium":
-            preco_base = precos["premium"]
-        else:
-            return "Tipo inválido. Use 'classico' ou 'premium'."
-        
-        if preco_base * (1 - tolerancia) <= preco <= preco_base * (1 + tolerancia):
-            return produto
-    return "OUTROS"
-
-if os.path.exists(r"produtos.xlsx"):
-    os.remove(r"produtos.xlsx")
-if os.path.exists(r"modelos_jfa.xlsx"):
-    os.remove(r"modelos_jfa.xlsx")
-
-    
-
 
 def SelecionarFonte(item):
-    nome = unidecode(item["Produto"].strip().lower())
-    price = float(item["Preço Unitário"].replace(".", "").replace(",", "."))
+    price = item["Preço Unitário"]
     tipo = unidecode(item["Tipo de Anúncio"].strip().lower())
-    total = float(item["Total"].replace(".", "").replace(",", "."))
-    if "inversor" in nome or "amplificador" in nome or "processador" in nome or "capa" in nome or "nobreak" in nome or "retificadora" in nome or "multimidia" in nome or "gerenciador" in nome or "suspensao" in nome or "stetsom" in nome or "central" in nome or 'k600' in nome or 'k1200' in nome or "fonte" not in nome:
-        return
-    
-    if "controle" not in nome and "lite" not in nome and "light" not in nome:
-        if "40" in nome or "40a" in nome or "40 amperes" in nome or "40amperes" in nome or "36a" in nome or "36" in nome or "36 amperes" in nome or "36amperes" in nome:
-            if tipo == "classico" and price < fonte40Classico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 40A", "predicted_price": fonte40Classico})
-                return
-            elif tipo == "premium" and price < fonte40Premium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 40A", "predicted_price": fonte40Premium})
-                return
-            
-            
-    if "bob" not in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome:
-        if "60" in nome or "60a" in nome or "60 amperes" in nome or "60amperes" in nome or "60 a" in nome or "-60" in nome:
-            if tipo == "classico" and price < fonte60Classico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 60A", "predicted_price": fonte60Classico})
-                return
-            elif tipo == "premium" and price < fonte60Premium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 60A", "predicted_price": fonte60Premium})
-                return
-            
-    if "bob" not in nome and ("lite" in nome or "light" in nome or "lit" in nome) and "controle" not in nome:
-        if "60" in nome or "60a" in nome or "60 amperes" in nome or "60amperes" in nome or "60 a" in nome:
-            if tipo == "classico" and price < fonte60liteClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 60A", "predicted_price": fonte60liteClassico})
-                return
-            elif tipo == "premium" and price < fonte60litePremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 60A", "predicted_price": fonte60litePremium})
-                return
-            
-    if "bob" not in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome:
-        if "70" in nome or "70a" in nome or "70 amperes" in nome or "70amperes" in nome or "70 a" in nome:
-            if tipo == "classico" and price < fonte70Classico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 70A", "predicted_price": fonte70Classico})
-                return
-            elif tipo == "premium" and price < fonte70Premium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 70A", "predicted_price": fonte70Premium})
-                return
+    if item['Produto2'] == "FONTE 40A":
+        if tipo == "classico" and price < fonte40Classico:
+            return f"FORA,{fonte40Classico + 0.01}"
+        elif tipo == "premium" and price < fonte40Premium:
+            return f"FORA,{fonte40Premium + 0.01}"
 
-    if "bob" not in nome and  ("lite" in nome or "light" in nome or "lit" in nome) and "controle" not in nome:
-        if "70" in nome or "70a" in nome or "70 amperes" in nome or "70amperes" in nome or "70 a" in nome:
-            if tipo == "classico" and price < fonte70liteClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 70A", "predicted_price": fonte70liteClassico})
-                return
-            elif tipo == "premium" and price < fonte70litePremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 70A", "predicted_price": fonte70litePremium})
-                return
+    if item['Produto2'] == "FONTE 60A":
+        if tipo == "classico" and price < fonte60Classico:
+            return f"FORA,{fonte60Classico + 0.01}"
+        elif tipo == "premium" and price < fonte60Premium:
+            return f"FORA,{fonte60Premium + 0.01}"
 
-            
-    if "lite" not in nome and "light" not in nome  and "controle" not in nome:
-        if "90" in nome or "90a" in nome or "90 amperes" in nome or "90amperes" in nome or "90 a" in nome:
-            if tipo == "classico" and price < fonte90bobClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 90A", "predicted_price": fonte90bobClassico})
-                return
-            elif tipo == "premium" and price < fonte90bobPremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 90A", "predicted_price": fonte90bobPremium})
-                return
-            
-    if "bob" not in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome and "lit" not in nome:
-        if "120" in nome or "120a" in nome or "120 amperes" in nome or "120amperes" in nome or "120 a" in nome:
-            if tipo == "classico" and price < fonte120Classico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 120A", "predicted_price": fonte120Classico})
-                return
-            elif tipo == "premium" and price < fonte120Premium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 120A", "predicted_price": fonte120Premium})
-                return
+    if item['Produto2'] == "FONTE LITE 60A":
+        if tipo == "classico" and price < fonte60liteClassico:
+            return f"FORA,{fonte60liteClassico + 0.01}"
+        elif tipo == "premium" and price < fonte60litePremium:
+            return f"FORA,{fonte60litePremium + 0.01}"
 
+    if item['Produto2'] == "FONTE 70A":
+        if tipo == "classico" and price < fonte70Classico:
+            return f"FORA,{fonte70Classico + 0.01}"
+        elif tipo == "premium" and price < fonte70Premium:
+            return f"FORA,{fonte70Premium + 0.01}"
 
-             
-    if "bob" not in nome and  ("lite" in nome or "light" in nome or "lit" in nome) and "controle" not in nome:
-        if "120" in nome or "120a" in nome or "120 amperes" in nome or "120amperes" in nome or "120 a" in nome:
-            if tipo == "classico" and price < fonte120liteClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 120A", "predicted_price": fonte120liteClassico})
-                return
-            elif tipo == "premium" and price < fonte120litePremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 120A", "predicted_price": fonte120litePremium})
-                return
-                
-    if "bob" in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome and "lit" not in nome:
-        if "120" in nome or "120a" in nome or "120 amperes" in nome or "120amperes" in nome or "120 a" in nome:
-            if tipo == "classico" and price < fonte120bobClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 120A", "predicted_price": fonte120bobClassico})
-                return
-            elif tipo == "premium" and price < fonte120bobPremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 120A", "predicted_price": fonte120bobPremium})
-                return
-                
-    if "bob" not in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome and 'mono' not in nome and 'mono' not in nome and 'monovolt' not in nome and '220v' not in nome and "lit" not in nome:
-        if "200" in nome or "200a" in nome or "200 amperes" in nome or "200amperes" in nome or "200 a" in nome:
-            if tipo == "classico" and price < fonte200Classico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 200A", "predicted_price": fonte200Classico})
-                return
-            elif tipo == "premium" and price < fonte200Premium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 200A", "predicted_price": fonte200Premium})
-                return
+    if item['Produto2'] == "FONTE LITE 70A":
+        if tipo == "classico" and price < fonte70liteClassico:
+            return f"FORA,{fonte70liteClassico + 0.01}"
+        elif tipo == "premium" and price < fonte70litePremium:
+            return f"FORA,{fonte70litePremium + 0.01}"
 
-    if "bob" not in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome and ("mono" in nome or "220v" in nome or "monovolt" in nome):
-        if "200" in nome or "200a" in nome or "200 amperes" in nome or "200amperes" in nome or "200 a" in nome:
-            if tipo == "classico" and price < fonte200monoClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 200A MONO", "predicted_price": fonte200monoClassico})
-                return
-            elif tipo == "premium" and price < fonte200monoPremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE 200A MONO", "predicted_price": fonte200monoPremium})
-                return
-                
-    if "bob" not in nome and  ("lite" in nome or "light" in nome or "lit" in nome) and "controle" not in nome and 'mono' not in nome:
-        if "200" in nome or "200a" in nome or "200 amperes" in nome or "200amperes" in nome or "200 a" in nome:
-            if tipo == "classico" and price < fonte200liteClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 200A", "predicted_price": fonte200liteClassico})
-                return
-            elif tipo == "premium" and price < fonte200litePremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE LITE 200A", "predicted_price": fonte200litePremium})
-                return
-                
-    if "bob" in nome and "lite" not in nome and "light" not in nome  and "controle" not in nome and 'mono' not in nome and 'mono' not in nome and 'monovolt' not in nome and '220v' not in nome:
-        if "200" in nome or "200a" in nome or "200 amperes" in nome or "200amperes" in nome or "200 a" in nome:
-            if tipo == "classico" and price < fonte200bobClassico:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 200A", "predicted_price": fonte200bobClassico})
-                return
-            elif tipo == "premium" and price < fonte200bobPremium:
-                items.append({"seller": item["Vendedor"], "title": nome,"listing_type": tipo, "price": price, "qtd": item["Qtde"], "total": total, "model": "FONTE BOB 200A", "predicted_price": fonte200bobPremium})
-                return
+    if item['Produto2'] == "FONTE BOB 90A":
+        if tipo == "classico" and price < fonte90bobClassico:
+            return f"FORA,{fonte90bobClassico + 0.01}"
+        elif tipo == "premium" and price < fonte90bobPremium:
+            return f"FORA,{fonte90bobPremium + 0.01}"
+
+    if item['Produto2'] == "FONTE 120A":
+        if tipo == "classico" and price < fonte120Classico:
+            return f"FORA,{fonte120Classico + 0.01}"
+        elif tipo == "premium" and price < fonte120Premium:
+            return f"FORA,{fonte120Premium + 0.01}"
+
+    if item['Produto2'] == "FONTE LITE 120A":
+        if tipo == "classico" and price < fonte120liteClassico:
+            return f"FORA,{fonte120liteClassico + 0.01}"
+        elif tipo == "premium" and price < fonte120litePremium:
+            return f"FORA,{fonte120litePremium + 0.01}"
+
+    if item['Produto2'] == "FONTE BOB 120A":
+        if tipo == "classico" and price < fonte120bobClassico:
+            return f"FORA,{fonte120bobClassico + 0.01}"
+        elif tipo == "premium" and price < fonte120bobPremium:
+            return f"FORA,{fonte120bobPremium + 0.01}"
+
+    if item['Produto2'] == "FONTE 200A":
+        if tipo == "classico" and price < fonte200Classico:
+            return f"FORA,{fonte200Classico + 0.01}"
+        elif tipo == "premium" and price < fonte200Premium:
+            return f"FORA,{fonte200Premium + 0.01}"
+
+    if item['Produto2'] == "FONTE MONO 200A":
+        if tipo == "classico" and price < fonte200monoClassico:
+            return f"FORA,{fonte200monoClassico + 0.01}"
+        elif tipo == "premium" and price < fonte200monoPremium:
+            return f"FORA,{fonte200monoPremium + 0.01}"
+
+    if item['Produto2'] == "FONTE LITE 200A":
+        if tipo == "classico" and price < fonte200liteClassico:
+            return f"FORA,{fonte200liteClassico + 0.01}"
+        elif tipo == "premium" and price < fonte200litePremium:
+            return f"FORA,{fonte200litePremium + 0.01}"
+
+    if item['Produto2'] == "FONTE BOB 200A":
+        if tipo == "classico" and price < fonte200bobClassico:
+            return f"FORA,{fonte200bobClassico + 0.01}"
+        elif tipo == "premium" and price < fonte200bobPremium:
+            return f"FORA,{fonte200bobPremium + 0.01}"
+        
+    return "DENTRO,0"
                 
     
-       
-
 parser = argparse.ArgumentParser(description='Processar datas de início e fim.')
 parser.add_argument('--dia_inicial', type=str, required=True, help='Data inicial no formato AAAA-MM-DD')
 parser.add_argument('--dia_final', type=str, required=True, help='Data final no formato AAAA-MM-DD')
@@ -406,33 +264,52 @@ headers = {
     "Cookie": cookie
 }
 
-urls = ["JFA", "JFA%20ELETRONICOS"]             
+urls = ["JFA", "JFA%20ELETRONICOS"]       
+
+all_dados = pd.DataFrame()  # Inicializar o DataFrame all_dados
+
 for i in urls:
     response = requests.get(f"https://corp.shoppingdeprecos.com.br/vendedores/exportar_vendas_marca?id={i}&ini={dia_inicial}&fim={dia_final}", headers=headers)
 
     if response.status_code == 200:  
-        print("resposta ok")
-        time.sleep(20)
         with open("produtos.xlsx", 'wb') as file:
-
             file.write(response.content)
 
     time.sleep(5)
 
+    novos_dados = pd.read_excel("produtos.xlsx", engine='openpyxl')
+    novos_dados['Preço Unitário'] = novos_dados['Preço Unitário'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False).astype(float)
+    # Carregar o pipeline treinado
+    pipeline_carregado = joblib.load('modelo_treinado.pkl')
 
+    # Fazer previsões nos novos dados
+    previsoes = pipeline_carregado.predict(novos_dados)
 
-    db = pd.read_excel("produtos.xlsx", engine='openpyxl')
+    # Carregar o label encoder
+    label_encoder_carregado = joblib.load('label_encoder.pkl')
+
+    # Decodificar as previsões para obter os nomes das classes
+    nomes_classes = label_encoder_carregado.inverse_transform(previsoes)
+
+    # Adicionar as previsões ao DataFrame original
+    novos_dados['Produto2'] = nomes_classes
                     
-    for index, item in db.iterrows():
-        SelecionarFonte(item)
+    for index, item in novos_dados.iterrows():
+        novos_dados.loc[index, 'politica'] = SelecionarFonte(item).split(",")[0]
+        novos_dados.loc[index, 'preço_previsto'] = round(float(SelecionarFonte(item).split(",")[1]),2)
 
-grouped_by_seller = defaultdict(list)
+        
+    all_dados = pd.concat([all_dados, novos_dados])
+all_dados.to_excel("market-share-historico.xlsx", index=False)
 
-for item in items:
-    seller = item['seller']
-    grouped_by_seller[seller].append(item)
+
+# grouped_by_seller = defaultdict(list)
+
+# for item in items:
+#     seller = item['seller']
+#     grouped_by_seller[seller].append(item)
     
-grouped_by_seller = dict(grouped_by_seller)
-enviar(grouped_by_seller)
+# grouped_by_seller = dict(grouped_by_seller)
+# enviar(grouped_by_seller)
     
     

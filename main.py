@@ -32,8 +32,9 @@ def chamar_script(dia_inicial, dia_final, cookie):
     
     scripts = ['jfa.py']
     
-    # dia_inicial = dia_inicial.get_date().strftime('%Y-%m-%d')
-    # dia_final = dia_final.get_date().strftime('%Y-%m-%d')
+    dia_inicial = cal_inicial.get_date().strftime('%Y-%m-%d')
+    dia_final = cal_final.get_date().strftime('%Y-%m-%d')
+    janela.destroy()
     
     for script in scripts:
         comando = [
@@ -115,8 +116,18 @@ data_ontem = ontem.strftime("%Y-%m-%d")
 
 
 
-schedule.every().day.at("13:50").do(chamar_script(data_ontem, data_ontem, cookie=cookie))
+janela = tk.Tk()
+janela.title('Market Share')
+data_atual = datetime.now()
+ttk.Label(janela, text='Data Inicial:').grid(column=0, row=0, padx=10, pady=10)
+cal_inicial = DateEntry(janela, width=22, background='darkblue', foreground='white', borderwidth=2, locale='pt_BR', day=data_atual.day - 1)
+cal_inicial.grid(column=1, row=0, padx=10, pady=10)
 
-while True:
-    schedule.run_pending()
-    time.sleep(60) 
+ttk.Label(janela, text='Data Final:').grid(column=0, row=1, padx=10, pady=10)
+cal_final = DateEntry(janela, width=22, background='darkblue', foreground='white', borderwidth=2, locale='pt_BR', day=data_atual.day - 1)
+cal_final.grid(column=1, row=1, padx=10, pady=10)
+
+ttk.Button(janela, text='Executar', command=lambda: chamar_script("", "", cookie)).grid(column=0, row=2, columnspan=2, pady=10)
+
+janela.protocol("WM_DELETE_WINDOW", lambda: janela.quit())
+janela.mainloop()
