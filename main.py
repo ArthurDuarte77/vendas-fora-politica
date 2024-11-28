@@ -216,7 +216,6 @@ def extract_items(driver):
 
         time.sleep(5)  # Espera para carregar os resultados
         
-        # Coleta de dados
         ids = [i for i in driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div/div/div[2]/div/div/div[1]/div/table/tbody/tr') if i.get_attribute("id")]
 
         for element in ids:
@@ -226,27 +225,35 @@ def extract_items(driver):
                 driver.execute_script(f"tabelaItens('{element_id}', 0)")
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="tr_concorrente_"]')))
 
-                for item in driver.find_elements(By.XPATH, '//*[@id="tr_concorrente_"]'):
-                    imagem = item.find_element(By.XPATH, './td[1]/img').get_attribute("src")
-                    nome = item.find_element(By.XPATH, './td[2]').text.split("\n")[0]
-                    tipo = item.find_element(By.XPATH, './td[2]').text.split("\n")[1].lower().replace("anúncio", "").strip()
-                    vendedor = item.find_element(By.XPATH, './td[3]').text
-                    quantidade = item.find_element(By.XPATH, './td[5]').text
-                    valor_unitario = item.find_element(By.XPATH, './td[6]').text
-                    total = item.find_element(By.XPATH, './td[7]').text
-                    items.append({
-                        "imagem": imagem,
-                        "Produto": nome,
-                        "Tipo de Anúncio": tipo,
-                        "vendedor": vendedor,
-                        "quantidade": quantidade,
-                        "Preço Unitário": valor_unitario,
-                        "total": total,
-                        "Produto2": "OUTROS"
-                    })
+                while True:
+                    for item in driver.find_elements(By.XPATH, '//*[@id="tr_concorrente_"]'):
+                        imagem = item.find_element(By.XPATH, './td[1]/img').get_attribute("src")
+                        nome = item.find_element(By.XPATH, './td[2]').text.split("\n")[0]
+                        tipo = item.find_element(By.XPATH, './td[2]').text.split("\n")[1].lower().replace("anúncio", "").strip()
+                        vendedor = item.find_element(By.XPATH, './td[3]').text
+                        quantidade = item.find_element(By.XPATH, './td[5]').text
+                        valor_unitario = item.find_element(By.XPATH, './td[6]').text
+                        total = item.find_element(By.XPATH, './td[7]').text
+                        items.append({
+                            "imagem": imagem,
+                            "Produto": nome,
+                            "Tipo de Anúncio": tipo,
+                            "vendedor": vendedor,
+                            "quantidade": quantidade,
+                            "Preço Unitário": valor_unitario,
+                            "total": total,
+                            "Produto2": "OUTROS"
+                        })
+                    try:
+                        if driver.find_element(By.XPATH, '//li[@class="next page"]/a'):
+                            driver.find_element(By.XPATH, '//li[@class="next page"]/a').click()
+                            time.sleep(5)
+                    except: 
+                        print("its over")
+                        break
             except (TimeoutException, JavascriptException) as e:
                 print(f"Error processing element with ID {element_id}: {e}")
-
+            
     except Exception as e:
         print(f"An error occurred during data extraction: {e}")
 
@@ -365,7 +372,7 @@ def main():
         response = requests.get(f"https://api.mercadolibre.com/sites/MLB/search?q={i['Produto']}")
         results = response.json()['results']
         for product in results:
-            if product["thumbnail_id"] == i['imagem'].split("D_")[1].split("-I")[0]:
+            if product["thumbnail_id"] == i['imagem'].split("D_")[1].split("-I")[0] and i['Produto'] in product["title"]:
                 i['Produto'] = product['title']
             
         
@@ -377,6 +384,7 @@ def main():
     novos_dados = pd.read_excel("items.xlsx", engine='openpyxl', decimal=",", thousands=".")
     
     for index, item in novos_dados.iterrows():
+        price = item['Preço Unitário']
         title = unidecode(item['Produto'].lower())
         item.loc['Produto2'] = "OUTROS"
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
@@ -440,7 +448,7 @@ def main():
     # Juntar os novos dados ao DataFrame original
     all_dados = novos_dados
 
-    all_dados.to_excel("modelos_jfa.xlsx", index=False)
+    all_dados.to_excel("resultado.xlsx", index=False)
 
 if __name__ == "__main__":
     main()
