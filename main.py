@@ -28,17 +28,18 @@ from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 import datetime
 
-data = ""
+dataInicial = ""
+dataFinal = ""
 
 def on_date_selected():
     global data  # Permite modificar a variável global
-    selected_date = cal.get_date()
+    end_date = end_cal.get_date()
+    started_data = start_cal.get_date()
     
     # Formata a data no estilo DDMMYYYY
-    data = selected_date.strftime('%d%m%Y')
-    
-    # Exibe a data formatada
-    messagebox.showinfo("Data Selecionada", f"Você selecionou: {data}")
+    dataInicial = started_data.strftime('%d%m%Y')
+    dataFinal = end_date.strftime('%d%m%Y')
+
     root.destroy()
 
 
@@ -50,8 +51,10 @@ root.title("Seletor de Datas")
 ttk.Label(root, text='Selecione uma data:').pack(padx=10, pady=10)
 
 # Adiciona o widget DateEntry
-cal = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2, year=2024)
-cal.pack(padx=10, pady=10)
+start_cal = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2, year=2024)
+start_cal.pack(padx=10, pady=10)
+end_cal = DateEntry(root, width=12, background='darkblue', foreground='white', borderwidth=2, year=2024)
+end_cal.pack(padx=10, pady=10)
 
 # Botão para confirmar seleção
 ttk.Button(root, text="Confirmar Data", command=on_date_selected).pack(pady=10)
@@ -207,8 +210,8 @@ def extract_items(driver):
         # Define a marca e as datas desejadas
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "cmbMarca"))).click()
         driver.find_element(By.XPATH, '//*[@id="cmbMarca"]/option[25]').click()
-        driver.find_element(By.ID, "txtIni").send_keys(data)
-        driver.find_element(By.ID, "txtFim").send_keys(data)
+        driver.find_element(By.ID, "txtIni").send_keys(dataInicial)
+        driver.find_element(By.ID, "txtFim").send_keys(dataFinal)
         driver.find_element(By.ID, "btnBuscar").click()
 
         time.sleep(5)  # Espera para carregar os resultados
