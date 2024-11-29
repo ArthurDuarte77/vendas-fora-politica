@@ -347,8 +347,16 @@ def main():
 
     driver.get("https://corp.shoppingdeprecos.com.br/vendedores/vendasMarca")
     time.sleep(4)
-    if driver.find_element(By.XPATH, '//*[@id="container"]/h1/text()') == "A Database Error Occurred":
-        driver.refresh() 
+    try:
+        # Verifica se o elemento existe e o texto corresponde
+        error_element = driver.find_element(By.XPATH, '//*[@id="container"]/h1')
+        if error_element.text.strip() == "A Database Error Occurred":
+            driver.refresh()
+    except NoSuchElementException:
+        # Caso o elemento não seja encontrado, continua sem erro
+        pass
+
+    # Extrai os itens após o refresh ou caso não haja erro
     items = extract_items(driver)
         
 
