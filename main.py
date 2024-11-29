@@ -1,3 +1,4 @@
+from selenium.webdriver.common.action_chains import ActionChains
 import sys
 import customtkinter as ctk
 from tqdm import tqdm
@@ -181,10 +182,10 @@ def extract_items(driver):
     items = []
     try:
         # Define a marca e as datas desejadas
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "cmbMarca"))).click()
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "cmbMarca"))).click()
         driver.find_element(By.XPATH, '//*[@id="cmbMarca"]').click()
         time.sleep(1)
-        driver.find_element(By.XPATH, '//*[@id="cmbMarca"]/option[25]').click()
+        driver.find_element(By.XPATH, '//*[@id="cmbMarca"]/option[26]').click()
         time.sleep(1)
         driver.find_element(By.ID, "txtIni").send_keys(dataInicial)
         time.sleep(1)
@@ -193,6 +194,68 @@ def extract_items(driver):
         driver.find_element(By.ID, "btnBuscar").click()
 
         time.sleep(5) 
+        
+        ids = [i for i in driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div/div/div[2]/div/div/div[1]/div/table/tbody/tr') if i.get_attribute("id")]
+
+        for element in ids:
+            element_id = element.get_attribute("id")
+            try:
+                WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, element_id)))
+                driver.execute_script(f"tabelaItens('{element_id}', 0)")
+                WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="tr_concorrente_"]')))
+                count = 0;
+                while True:
+                    time.sleep(2)
+                    for item in driver.find_elements(By.XPATH, '//*[@id="tr_concorrente_"]'):
+                        imagem = item.find_element(By.XPATH, './td[1]/img').get_attribute("src")
+                        nome = item.find_element(By.XPATH, './td[2]').text.split("\n")[0]
+                        tipo = item.find_element(By.XPATH, './td[2]').text.split("\n")[1].lower().replace("anúncio", "").strip()
+                        vendedor = item.find_element(By.XPATH, './td[3]').text
+                        quantidade = item.find_element(By.XPATH, './td[5]').text
+                        valor_unitario = item.find_element(By.XPATH, './td[6]').text
+                        total = item.find_element(By.XPATH, './td[7]').text
+                        items.append({
+                            "data": datetime.datetime.strptime(dataInicial, "%d%m%Y").strftime("%d-%m-%Y"),
+                            "imagem": imagem,
+                            "Produto": nome,
+                            "Tipo de Anúncio": tipo,
+                            "vendedor": vendedor,
+                            "quantidade": quantidade,
+                            "Preço Unitário": valor_unitario,
+                            "total": total,
+                            "Produto2": "OUTROS"
+                        })
+                    try:
+                        if driver.find_element(By.XPATH, '//li[@class="next page"]/a'):
+                            count += 30
+                            driver.execute_script(f"tabela({count});")
+                        else:
+                            break
+                    except: 
+                        break
+            except (TimeoutException, JavascriptException) as e:
+                print(f"Error processing element with ID {element_id}: {e}")
+            
+    except Exception as e:
+        print(f"An error occurred during data extraction: {e}")
+    driver.refresh()
+    time.sleep(3)
+    try:
+        WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.ID, "cmbMarca")))
+        driver.execute_script("scrollTo(0,0);")
+        element = driver.find_element(By.ID, "cmbMarca")
+        actions = ActionChains(driver)
+        actions.move_to_element(element).click().perform()
+        time.sleep(1)
+        driver.find_element(By.XPATH, '//*[@id="cmbMarca"]/option[27]').click()
+        time.sleep(1)
+        driver.find_element(By.ID, "txtIni").send_keys(dataInicial)
+        time.sleep(1)
+        driver.find_element(By.ID, "txtFim").send_keys(dataFinal)
+        time.sleep(1)
+        driver.find_element(By.ID, "btnBuscar").click()
+
+        time.sleep(5)
         
         ids = [i for i in driver.find_elements(By.XPATH, '/html/body/div[2]/div[2]/div[2]/div/div/div[2]/div/div/div[1]/div/table/tbody/tr') if i.get_attribute("id")]
 
@@ -347,6 +410,14 @@ def main():
 
     driver.get("https://corp.shoppingdeprecos.com.br/vendedores/vendasMarca")
     time.sleep(4)
+    try:
+        # Verifica se o elemento existe e o texto corresponde
+        error_element = driver.find_element(By.XPATH, '//*[@id="container"]/h1')
+        if error_element.text.strip() == "A Database Error Occurred":
+            driver.refresh()
+    except NoSuchElementException:
+        # Caso o elemento não seja encontrado, continua sem erro
+        pass
     try:
         # Verifica se o elemento existe e o texto corresponde
         error_element = driver.find_element(By.XPATH, '//*[@id="container"]/h1')
