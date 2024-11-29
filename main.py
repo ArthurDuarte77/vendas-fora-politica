@@ -1,3 +1,4 @@
+import sys
 import customtkinter as ctk
 from tqdm import tqdm
 from unidecode import unidecode
@@ -32,51 +33,6 @@ import datetime
 
 dataInicial = ""
 dataFinal = ""
-
-def on_date_selected():
-    global dataInicial  # Permite modificar a variável global
-    global dataFinal  # Permite modificar a variável global
-    end_date = end_cal.get_date()
-    started_data = start_cal.get_date()
-    
-    # Formata a data no estilo DDMMYYYY
-    dataInicial = started_data.strftime('%d%m%Y')
-    dataFinal = end_date.strftime('%d%m%Y')
-    
-
-    root.destroy()
-
-
-root = ctk.CTk()
-root.geometry("500x500")
-root.title("Seletor de Datas")
-
-
-
-# Configuração para ocupar a janela toda
-root.grid_columnconfigure(0, weight=1)
-root.grid_rowconfigure((0, 1, 2, 3, 4), weight=1)
-data_atual = datetime.datetime.now()
-# Label e DateEntry para a data inicial
-textoInicial = ctk.CTkLabel(root, text="Data Inicial:", font=("Arial", 16))
-textoInicial.grid(row=0, column=0, padx=10, pady=5, sticky="nsew")
-
-start_cal = DateEntry(root, width=100, background='darkblue', foreground='white', borderwidth=2, year=2024, locale='pt_BR', day=data_atual.day - 1)
-start_cal.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-
-# Label e DateEntry para a data final
-textoFinal = ctk.CTkLabel(root, text="Data Final:", font=("Arial", 16))
-textoFinal.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
-
-end_cal = DateEntry(root, width=100, background='darkblue', foreground='white', borderwidth=2, year=2024, locale='pt_BR', day=data_atual.day - 1)
-end_cal.grid(row=3, column=0, padx=10, pady=5, sticky="nsew")
-
-# Botão para confirmar seleção
-confirm_button = ctk.CTkButton(root, text="Confirmar Data", font=("Arial", 16), command=on_date_selected)
-confirm_button.grid(row=4, column=0, padx=10, pady=10, sticky="nsew")
-
-# Executar a aplicação
-root.mainloop()
 
 start_row = 20  
 end_row = 37
@@ -226,6 +182,8 @@ def extract_items(driver):
     try:
         # Define a marca e as datas desejadas
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "cmbMarca"))).click()
+        driver.find_element(By.XPATH, '//*[@id="cmbMarca"]').click()
+        time.sleep(1)
         driver.find_element(By.XPATH, '//*[@id="cmbMarca"]/option[25]').click()
         time.sleep(1)
         driver.find_element(By.ID, "txtIni").send_keys(dataInicial)
@@ -246,7 +204,7 @@ def extract_items(driver):
                 WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="tr_concorrente_"]')))
                 count = 0;
                 while True:
-                    time.sleep(3)
+                    time.sleep(2)
                     for item in driver.find_elements(By.XPATH, '//*[@id="tr_concorrente_"]'):
                         imagem = item.find_element(By.XPATH, './td[1]/img').get_attribute("src")
                         nome = item.find_element(By.XPATH, './td[2]').text.split("\n")[0]
@@ -256,6 +214,7 @@ def extract_items(driver):
                         valor_unitario = item.find_element(By.XPATH, './td[6]').text
                         total = item.find_element(By.XPATH, './td[7]').text
                         items.append({
+                            "data": datetime.datetime.strptime(dataInicial, "%d%m%Y").strftime("%d-%m-%Y"),
                             "imagem": imagem,
                             "Produto": nome,
                             "Tipo de Anúncio": tipo,
@@ -265,15 +224,12 @@ def extract_items(driver):
                             "total": total,
                             "Produto2": "OUTROS"
                         })
-                    time.sleep(3)
                     try:
                         if driver.find_element(By.XPATH, '//li[@class="next page"]/a'):
-                            if count == 0:
-                                driver.find_element(By.XPATH, '//li[@class="next page"]/a').click()
-                                time.sleep(3)
-                            driver.find_element(By.XPATH, '//li[@class="next page"]/a').click()
-                            coun += 30
-                            time.sleep(5)
+                            count += 30
+                            driver.execute_script(f"tabela({count});")
+                        else:
+                            break
                     except: 
                         break
             except (TimeoutException, JavascriptException) as e:
@@ -390,7 +346,11 @@ def main():
     login_to_website(driver, email, password)
 
     driver.get("https://corp.shoppingdeprecos.com.br/vendedores/vendasMarca")
+    time.sleep(4)
+    if driver.find_element(By.XPATH, '//*[@id="container"]/h1/text()') == "A Database Error Occurred":
+        driver.refresh() 
     items = extract_items(driver)
+        
 
     driver.quit()
 
@@ -413,54 +373,54 @@ def main():
         title = unidecode(item['Produto'].lower())
         item.loc['Produto2'] = "OUTROS"
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "40a" in title or "40" in title or "40 amperes" in title or "40amperes" in title or "36a" in title or "36" in title or "36 amperes" in title or "36amperes" in title:
+            if "40a" in title or "40 " in title or "40 amperes" in title or "40amperes" in title or "36a" in title or "36" in title or "36 amperes" in title or "36amperes" in title:
                 item['Produto2'] = "FONTE 40A"
 
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "60a" in title or "60" in title or "60 amperes" in title or "60amperes" in title or "60 a" in title:
+            if "60a" in title or "60 " in title or "60 amperes" in title or "60amperes" in title or "60 a" in title:
                 item['Produto2'] = "FONTE 60A"
 
         if "bob" not in title and ("lite" in title or "light" in title) and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "60a" in title or "60" in title or "60 amperes" in title or "60amperes" in title or "60 a" in title: 
+            if "60a" in title or "60 " in title or "60 amperes" in title or "60amperes" in title or "60 a" in title: 
                 item['Produto2'] = "FONTE LITE 60A"
 
         
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "70a" in title or "70" in title or "70 amperes" in title or "70amperes" in title or "70 a" in title:
+            if "70a" in title or "70 " in title or "70 amperes" in title or "70amperes" in title or "70 a" in title:
                 item['Produto2'] = "FONTE 70A"
 
         if "bob" not in title and  ("lite" in title or "light" in title) and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "70a" in title or "70" in title or "70 amperes" in title or "70amperes" in title or "70 a" in title:
+            if "70a" in title or "70 " in title or "70 amperes" in title or "70amperes" in title or "70 a" in title:
                 item['Produto2'] = "FONTE LITE 70A"
                 
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "120a" in title or "120" in title or "120 amperes" in title or "120amperes" in title or "120 a" in title: 
+            if "120a" in title or "120 " in title or "120 amperes" in title or "120amperes" in title or "120 a" in title: 
                 item['Produto2'] = "FONTE 120A"
 
         if "bob" not in title and  ("lite" in title or "light" in title) and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "120a" in title or "120" in title or "120 amperes" in title or "120amperes" in title or "120 a" in title:
+            if "120a" in title or "120 " in title or "120 amperes" in title or "120amperes" in title or "120 a" in title:
                 item['Produto2'] = "FONTE LITE 120A"
 
         if "bob" not in title and "lite" not in title and "light" not in title and "controle" not in title and 'mono' not in title and 'monovolt' not in title and "220v" not in title:
-            if "200a" in title or "200" in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
+            if "200a" in title or "200 " in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
                 item['Produto2'] = "FONTE 200A"
 
         if "bob" not in title and  ("lite" in title or "light" in title) and "controle" not in title and 'mono' not in title and 'monovolt' not in title:
-            if "200a" in title or "200" in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
+            if "200a" in title or "200 " in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
                 item['Produto2'] = "FONTE LITE 200A"
 
 
         if "bob" in title and "lite" not in title and "light" not in title  and "controle" not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "120a" in title or "120" in title or "120 amperes" in title or "120amperes" in title or "120 a" in title:
+            if "120a" in title or "120 " in title or "120 amperes" in title or "120amperes" in title or "120 a" in title:
                 item['Produto2'] = "FONTE BOB 120A"
                 
         if "bob" in title and "lite" not in title and "light" not in title  and "controle" not in title and 'mono' not in title and 'mono' not in title and 'monovolt' not in title and "usina" not in title and ("jfa" in title or "fonte carregador" in title or "fonte automotiva" in title or "fonte e carregador" in title or "carregador de baterias" in title):
-            if "200a" in title or "200" in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
+            if "200a" in title or "200 " in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
                 item['Produto2'] = "FONTE BOB 200A"
 
 
         if "bob" not in title and "lite" not in title and "light" not in title  and "controle" not in title and ("mono" in title or "220v" in title or "monovolt" in title):
-            if "200a" in title or "200" in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
+            if "200a" in title or "200 " in title or "200 amperes" in title or "200amperes" in title or "200 a" in title:
                 item['Produto2'] = "FONTE 200A MONO"
                 
         
@@ -473,7 +433,23 @@ def main():
     # Juntar os novos dados ao DataFrame original
     all_dados = novos_dados
 
-    all_dados.to_excel("resultado.xlsx", index=False)
+
+    if os.path.exists('resultado.xlsx'):  
+        existing_data = pd.read_excel("resultado.xlsx")
+        all_dados = pd.concat([existing_data, novos_dados], ignore_index=True)
+        all_dados.to_excel("resultado.xlsx", index=False)
+    else:  
+        all_dados.to_excel("resultado.xlsx", index=False)
 
 if __name__ == "__main__":
+    # Verifica se os argumentos foram passados
+    if len(sys.argv) != 3:
+        print("Erro: As datas não foram passadas corretamente.")
+        print("Uso: python main.py <dataInicial> <dataFinal>")
+        sys.exit(1)
+    
+    # Recebe os argumentos
+    dataInicial = sys.argv[1]
+    dataFinal = sys.argv[2]
+    
     main()
