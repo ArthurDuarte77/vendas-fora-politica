@@ -440,11 +440,11 @@ def main():
 
     # Juntar os novos dados ao DataFrame original
     all_dados = novos_dados
-
-
+    
     if os.path.exists('resultado.xlsx'):  
         existing_data = pd.read_excel("resultado.xlsx")
         all_dados = pd.concat([existing_data, novos_dados], ignore_index=True)
+        all_dados.drop_duplicates(inplace=True)
         all_dados.to_excel("resultado.xlsx", index=False)
     else:  
         all_dados.to_excel("resultado.xlsx", index=False)
