@@ -39,7 +39,7 @@ start_row = 20
 end_row = 37
 num_rows = end_row - start_row
 
-df = pd.read_excel("GESTÃO DE AÇÕES E-COMMERCE.xlsx", usecols='C:O', skiprows=start_row, nrows=num_rows, engine='openpyxl', sheet_name="POLÍTICA COMERCIAL Nov24")
+df = pd.read_excel("GESTÃO DE AÇÕES E-COMMERCE.xlsx", usecols='C:O', skiprows=start_row, nrows=num_rows, engine='openpyxl', sheet_name="POLÍTICA COMERCIAL Dez24")
 
 df.columns = ['PRODUTO', 'inutil1', 'SITE', 'COLUNA3','inutil2', 'CLÁSSICO ML', 'COLUNA5','inutil3', 'PREMIUM ML', 'COLUNA7','inutil4', 'MARKETPLACES', 'COLUNA9']
 
@@ -386,9 +386,9 @@ def SelecionarFonte(item):
         
     if item['Produto2'] == "FONTE 200A MONO":
         if tipo == "classico" and price < fonte200monoClassico:
-            return f"FORA,{fonte200bobClassico + 0.03}"
+            return f"FORA,{fonte200monoClassico + 0.03}"
         elif tipo == "premium" and price < fonte200monoPremium:
-            return f"FORA,{fonte200bobPremium + 0.03}"
+            return f"FORA,{fonte200monoPremium + 0.03}"
         
     return "DENTRO,0"
 
@@ -518,6 +518,7 @@ def main():
         all_dados = all_dados.drop_duplicates()
         all_dados.to_excel("resultado.xlsx", index=False)
     else:  
+        all_dados = all_dados.drop_duplicates()
         all_dados.to_excel("resultado.xlsx", index=False)
 
 if __name__ == "__main__":
